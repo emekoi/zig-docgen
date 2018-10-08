@@ -62,6 +62,7 @@ const TokenId = enum {
     KeywordElse,
     KeywordEnum,
     KeywordError,
+    KeywordErrDefer,
     KeywordExport,
     KeywordExtern,
     KeywordFalse,
@@ -129,7 +130,7 @@ const Kw = struct {
     name: []const u8,
     id: TokenId,
 
-    pub fn new(name: []const u8, id: TokenId) -> Kw {
+    pub fn new(name: []const u8, id: TokenId) Kw {
         Kw {
             .name = name,
             .id = id,
@@ -150,7 +151,8 @@ const keywords = []Kw {
     Kw.new("else", TokenId.KeywordElse),
     Kw.new("enum", TokenId.KeywordEnum),
     Kw.new("error", TokenId.KeywordError),
-    Kw.new("export", TokenId.KeywordExport),
+    Kw.new("error", TokenId.KeywordError),
+    Kw.new("errdefer", TokenId.KeywordErrDefer),
     Kw.new("extern", TokenId.KeywordExtern),
     Kw.new("false", TokenId.KeywordFalse),
     Kw.new("fn", TokenId.KeywordFn),
@@ -180,14 +182,13 @@ const keywords = []Kw {
     Kw.new("while", TokenId.KeywordWhile),
 };
 
-fn getKeywordId(symbol: []const u8) -> ?TokenId {
+fn getKeywordId(symbol: []const u8) ?TokenId {
     for (keywords) |kw| {
         if (std.mem.eql(u8, kw.name, symbol)) {
             return kw.id;
         }
     }
-
-    null
+    return null;
 }
 
 error BadValueForRadix;
@@ -201,7 +202,7 @@ const IntOrFloat = enum {
 /// Returns the digit value of the specified character under the specified radix.
 ///
 /// If the value is too large, an error is returned.
-fn getDigitValueForRadix(comptime radix: u8, c: u8) -> %u8 {
+fn getDigitValueForRadix(comptime radix: u8, c: u8) !u8 {
     const value = switch (c) {
         '0' ... '9' => |x| { x - '0' },
         'a' ... 'z' => |x| { x - 'a' + 10 },
@@ -210,7 +211,7 @@ fn getDigitValueForRadix(comptime radix: u8, c: u8) -> %u8 {
     };
 
     if (value < radix) {
-        value
+        return value;
     } else {
         return error.BadValueForRadix;
     }
@@ -225,15 +226,15 @@ pub const TokenData = enum {
     Error: error,
 };
 
-fn printCharEscaped(c: u8) -> %void {
+fn printCharEscaped(c: u8) !void {
     const printf = std.io.stdout.printf;
 
     switch (c) {
-        '\r' => %return printf("\\r"),
-        '\t' => %return printf("\\t"),
-        '\n' => %return printf("\\n"),
-        '\\' => %return printf("\\\\"),
-        else => %return printf("{c}", c),
+        '\r' => return try printf("\\r"),
+        '\t' => return try printf("\\t"),
+        '\n' => return try printf("\\n"),
+        '\\' => return try printf("\\\\"),
+        else => return try printf("{c}", c),
     }
 }
 
@@ -243,40 +244,40 @@ pub const Token = struct {
     span: Span,
     data: ?TokenData,
 
-    pub fn print(self: &const Token) -> %void {
+    pub fn print(self: &const Token) !void {
         const printf = std.io.stdout.printf;
 
-        %return printf("{}:{} {}",
+        return try printf("{}:{} {}",
             self.span.start_line,
             self.span.start_column,
             @enumTagName(self.id)
         );
 
         if (self.data) |inner| {
-            %return printf(" (");
+            return try printf(" (");
             switch (inner) {
                 TokenData.InternPoolRef => |p_ref| {
                     for (p_ref) |c| {
-                        %return printCharEscaped(c);
+                        return try printCharEscaped(c);
                     }
                 },
                 TokenData.Integer => |i| {
-                    %return printf("{}", i);
+                    return try printf("{}", i);
                 },
                 TokenData.Float => |f| {
-                    %return printf("{}", f);
+                    return try printf("{}", f);
                 },
                 TokenData.Char => |c| {
-                    %return printCharEscaped(c);
+                    return try printCharEscaped(c);
                 },
                 TokenData.Error => |e| {
-                    %return printf("{}", @errorName(e));
+                    return try printf("{}", @errorName(e));
                 },
             }
-            %return printf(")");
+            return try printf(")");
         }
 
-        %return printf("\n");
+        return try printf("\n");
     }
 };
 
@@ -296,7 +297,7 @@ error MissingCharLiteralData;
 error ExtraCharLiteralData;
 error EofWhileParsingLiteral;
 
-fn u8eql(a: []const u8, b: []const u8) -> bool {
+fn u8eql(a: []const u8, b: []const u8) bool {
     std.mem.eql(u8, a, b)
 }
 
@@ -320,7 +321,7 @@ pub const Tokenizer = struct {
     c_buf: []const u8,
 
     /// Initialize a new tokenizer to handle the specified input buffer.
-    pub fn init(allocator: &Allocator) -> Self {
+    pub fn init(allocator: *Allocator) Self {
         Self {
             .tokens = ArrayList(Token).init(allocator),
             .lines = ArrayList(usize).init(allocator),
@@ -338,7 +339,7 @@ pub const Tokenizer = struct {
     }
 
     /// Deinitialize the internal tokenizer state.
-    pub fn deinit(self: &Self) {
+    pub fn deinit(self: *Self) {
         self.tokens.deinit();
         self.lines.deinit();
         self.intern_pool.deinit();
@@ -348,18 +349,18 @@ pub const Tokenizer = struct {
     /// Returns the next byte in the buffer and advances our position.
     ///
     /// If we have reached the end of the stream, null is returned.
-    fn nextByte(self: &Self) -> ?u8 {
+    fn nextByte(self: *Self) ?u8 {
         if (self.c_byte >= self.c_buf.len) {
-            null
+            return null;
         } else {
             const i = self.c_byte;
             self.bump(1);
-            self.c_buf[i]
+            return self.c_buf[i];
         }
     }
 
     /// Mark the current position as the start of a token.
-    fn beginToken(self: &Self) {
+    fn beginToken(self: *Self) {
         self.c_token = Token {
             .id = undefined,
             .span = Span {
@@ -373,57 +374,57 @@ pub const Tokenizer = struct {
     }
 
     /// Set the id of the current token.
-    fn setToken(self: &Self, id: TokenId) {
-        (??self.c_token).id = id;
+    fn setToken(self: *Self, id: TokenId) {
+        self.c_token.?.*.id = id;
     }
 
     /// Mark the current position as the end of the current token.
     ///
     /// A token must have been previously set using beginToken.
-    fn endToken(self: &Self) -> %void {
-        var c = ??self.c_token;
+    fn endToken(self: *Self) !void {
+        var c = self.c_token.?;
         c.span.end_byte = self.c_byte + 1;
-        %return self.tokens.append(c);
+        return try self.tokens.append(c);
         self.c_token = null;
     }
 
     /// Set the data field for a ArrayList(u8) field using the internal InternPool.
     ///
     /// This takes ownership of the underlying memory.
-    fn setInternToken(self: &Self, data: &ArrayList(u8)) -> %void {
+    fn setInternToken(self: *Self, data: *ArrayList(u8)) !void {
         const ref = if (self.intern_pool.get(data.toSliceConst())) |entry| {
             data.deinit();
-            entry.value
+            return entry.value;
         } else {
-            _ = %return self.intern_pool.put(data.toSliceConst(), data.toSliceConst());
+            _ = return try self.intern_pool.put(data.toSliceConst(), data.toSliceConst());
             data.toSliceConst()
         };
 
-        (??self.c_token).data = TokenData.InternPoolRef { ref };
+        self.c_token.?.*.data = TokenData.InternPoolRef { ref };
     }
 
     /// Mark the current position as the end of a token and set it to a new id.
-    fn setEndToken(self: &Self, id: TokenId) -> %void {
+    fn setEndToken(self: *Self, id: TokenId) !void {
         self.setToken(id);
-        %return self.endToken();
+        return try self.endToken();
     }
 
     /// Peek at the character n steps ahead in the stream.
     ///
     /// If no token is found, returns the null byte.
     // TODO: Return an actual null? Much more verbose during usual parsing though.
-    fn peek(self: &Self, comptime i: usize) -> u8 {
+    fn peek(self: *Self, comptime i: usize) u8 {
         if (self.c_byte + i >= self.c_buf.len) {
-            0
+            return 0;
         } else {
-            self.c_buf[self.c_byte + i]
+            return self.c_buf[self.c_byte + i];
         }
     }
 
     /// Advance the cursor location by n steps.
     ///
     /// Bumping past the end of the buffer has no effect.
-    fn bump(self: &Self, comptime i: usize) {
+    fn bump(self: *Self, comptime i: usize) {
         var j: usize = 0;
         while (j < i) : (j += 1) {
             if (self.c_byte >= self.c_buf.len) {

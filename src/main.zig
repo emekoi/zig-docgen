@@ -14,7 +14,7 @@ const Action = enum {
 };
 
 fn printUsage() {
-    %%io.stderr.printf(
+    debug.warn(
         \\usage: cat <file> | docgen
         \\
         \\  --tokenize  Tokenize the input file and print the tokens
@@ -23,12 +23,12 @@ fn printUsage() {
     );
 }
 
-fn commandTokenize(buf: &Buffer) {
+fn commandTokenize(buf: *Buffer) {
     var tkr = Tokenizer.init(&mem.c_allocator);
 
-    _ = %%tkr.process(buf.toSliceConst());
+    _ = try tkr.process(buf.toSliceConst());
     for (tkr.tokens.toSliceConst()) |token| {
-        %%token.print();
+        try token.print();
     }
 }
 
