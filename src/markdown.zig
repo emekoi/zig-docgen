@@ -6,33 +6,33 @@ const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const Buffer = std.Buffer;
 
-const MdState = enum {
+const MdState = enum.{
     Normal,
     FencedCodeBlock,
 };
 
-const HeaderWeight = enum {
+const HeaderWeight = enum.{
     H1, H2, H3, H4, H5, H6,
 };
 
-const MdTextAttribute = enum {
+const MdTextAttribute = enum.{
     None,
     Italic,
     Bold,
     Code,
 };
 
-const MdTextItem = enum {
+const MdTextItem = enum.{
     Buf: Buffer,
     Attr: MdTextAttribute,
 
-    pub fn print(self: &const MdTextItem) -> %void {
+    pub fn print(self: *const MdTextItem) !void {
         switch (*self) {
             MdTextItem.Buf => |b| {
-                %return printf("'{}'", b.toSliceConst());
+                try printf("'{}'", b.toSliceConst());
             },
             MdTextItem.Attr => |a| {
-                %return printf("'{}'", @enumTagName(a));
+                try printf("'{}'", @enumTagName(a));
             }
         }
     }
@@ -40,12 +40,12 @@ const MdTextItem = enum {
 
 const MdText = ArrayList(MdTextItem);
 
-const MdHeader = struct {
+const MdHeader = struct.{
     text: MdText,
     weight: HeaderWeight,
 };
 
-const MdNode = enum {
+const MdNode = enum.{
     Header: MdHeader,
     Paragraph: MdText,
 

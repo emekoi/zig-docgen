@@ -14,7 +14,7 @@ const Allocator = std.mem.Allocator;
 const HashMap = std.HashMap;
 
 /// A TokenId represents a kind of token. It will also hold its associated data if present.
-const TokenId = enum {
+const TokenId = enum.{
     Ampersand,
     Arrow,
     AtSign,
@@ -126,19 +126,19 @@ const TokenId = enum {
     TimesPercentEq,
 };
 
-const Kw = struct {
+const Kw = struct.{
     name: []const u8,
     id: TokenId,
 
     pub fn new(name: []const u8, id: TokenId) Kw {
-        Kw {
+        return Kw.{
             .name = name,
             .id = id,
-        }
+        };
     }
 };
 
-const keywords = []Kw {
+const keywords = []Kw.{
     Kw.new("align", TokenId.KeywordAlign),
     Kw.new("and", TokenId.KeywordAnd),
     Kw.new("asm", TokenId.KeywordAsm),
@@ -151,13 +151,11 @@ const keywords = []Kw {
     Kw.new("else", TokenId.KeywordElse),
     Kw.new("enum", TokenId.KeywordEnum),
     Kw.new("error", TokenId.KeywordError),
-    Kw.new("error", TokenId.KeywordError),
     Kw.new("errdefer", TokenId.KeywordErrDefer),
     Kw.new("extern", TokenId.KeywordExtern),
     Kw.new("false", TokenId.KeywordFalse),
     Kw.new("fn", TokenId.KeywordFn),
     Kw.new("for", TokenId.KeywordFor),
-    Kw.new("goto", TokenId.KeywordGoto),
     Kw.new("if", TokenId.KeywordIf),
     Kw.new("inline", TokenId.KeywordInline),
     Kw.new("nakedcc", TokenId.KeywordNakedCC),
@@ -171,7 +169,6 @@ const keywords = []Kw {
     Kw.new("struct", TokenId.KeywordStruct),
     Kw.new("switch", TokenId.KeywordSwitch),
     Kw.new("test", TokenId.KeywordTest),
-    Kw.new("this", TokenId.KeywordThis),
     Kw.new("true", TokenId.KeywordTrue),
     Kw.new("undefined", TokenId.KeywordUndefined),
     Kw.new("union", TokenId.KeywordUnion),
@@ -191,22 +188,24 @@ fn getKeywordId(symbol: []const u8) ?TokenId {
     return null;
 }
 
-error BadValueForRadix;
-error ValueOutOfRange;
-
-const IntOrFloat = enum {
+const IntOrFloat = enum.{
     Int: u64,   // TODO: Convert back to u128 when __floatuntidf implemented.
     Float: f64,
+};
+
+const DigitError = error.{
+    BadValueForRadix,
+    ValueOutOfRange,
 };
 
 /// Returns the digit value of the specified character under the specified radix.
 ///
 /// If the value is too large, an error is returned.
-fn getDigitValueForRadix(comptime radix: u8, c: u8) !u8 {
+fn getDigitValueForRadix(comptime radix: u8, c: u8) DigitError!u8 {
     const value = switch (c) {
-        '0' ... '9' => |x| { x - '0' },
-        'a' ... 'z' => |x| { x - 'a' + 10 },
-        'A' ... 'Z' => |x| { x - 'A' + 10 },
+        '0' ... '9' => |x| x - '0' ,
+        'a' ... 'z' => |x| x - 'a' + 10 ,
+        'A' ... 'Z' => |x| x - 'A' + 10 ,
         else => return error.ValueOutOfRange,
     };
 
@@ -218,7 +217,7 @@ fn getDigitValueForRadix(comptime radix: u8, c: u8) !u8 {
 }
 
 /// Extra data associated with a particular token.
-pub const TokenData = enum {
+pub const TokenData = enum.{
     InternPoolRef: []const u8,
     Integer: u64,
     Float: f64, // TODO: Could change to an f128 (or arbitrary-precision) when printing works
@@ -229,22 +228,22 @@ pub const TokenData = enum {
 fn printCharEscaped(c: u8) !void {
     const printf = std.io.stdout.printf;
 
-    switch (c) {
-        '\r' => return try printf("\\r"),
-        '\t' => return try printf("\\t"),
-        '\n' => return try printf("\\n"),
-        '\\' => return try printf("\\\\"),
-        else => return try printf("{c}", c),
-    }
+    return switch (c) {
+        '\r' => try printf("\\r"),
+        '\t' => try printf("\\t"),
+        '\n' => try printf("\\n"),
+        '\\' => try printf("\\\\"),
+        else => try printf("{c}", c),
+    };
 }
 
 /// A Token consists of a type/id and an associated location/span within the source file.
-pub const Token = struct {
+pub const Token = struct.{
     id: TokenId,
     span: Span,
     data: ?TokenData,
 
-    pub fn print(self: &const Token) !void {
+    pub fn print(self: *const Token) !void {
         const printf = std.io.stdout.printf;
 
         return try printf("{}:{} {}",
@@ -282,30 +281,32 @@ pub const Token = struct {
 };
 
 /// A Span represents a contiguous sequence (byte-wise) of a source file.
-pub const Span = struct {
+pub const Span = struct.{
     start_byte: usize,
     end_byte: usize,
     start_line: usize,
     start_column: usize,
 };
 
-error UnicodeCharCodeOutOfRange;
-error NewlineInStringLiteral;
-error InvalidCharacter;
-error InvalidCharacterAfterBackslash;
-error MissingCharLiteralData;
-error ExtraCharLiteralData;
-error EofWhileParsingLiteral;
+const TokenizerError = error.{
+    UnicodeCharCodeOutOfRange,
+    NewlineInStringLiteral,
+    InvalidCharacter,
+    InvalidCharacterAfterBackslash,
+    MissingCharLiteralData,
+    ExtraCharLiteralData,
+    EofWhileParsingLiteral,
+};
 
 fn u8eql(a: []const u8, b: []const u8) bool {
-    std.mem.eql(u8, a, b)
+    return std.mem.eql(u8, a, b);
 }
 
 // The second value is heap allocated.
 pub const InternPool = HashMap([]const u8, []const u8, std.mem.hash_slice_u8, u8eql);
 
-pub const Tokenizer = struct {
-    const Self = this;
+pub const Tokenizer = struct.{
+    const Self = @This();
 
     tokens: ArrayList(Token),
     lines: ArrayList(usize),
@@ -322,7 +323,7 @@ pub const Tokenizer = struct {
 
     /// Initialize a new tokenizer to handle the specified input buffer.
     pub fn init(allocator: *Allocator) Self {
-        Self {
+        return Self.{
             .tokens = ArrayList(Token).init(allocator),
             .lines = ArrayList(usize).init(allocator),
             .intern_pool = InternPool.init(allocator),
@@ -335,11 +336,11 @@ pub const Tokenizer = struct {
             .c_line = 1,
             .c_column = 1,
             .c_buf = undefined,
-        }
+        };
     }
 
     /// Deinitialize the internal tokenizer state.
-    pub fn deinit(self: *Self) {
+    pub fn deinit(self: *Self) void {
         self.tokens.deinit();
         self.lines.deinit();
         self.intern_pool.deinit();
@@ -360,10 +361,10 @@ pub const Tokenizer = struct {
     }
 
     /// Mark the current position as the start of a token.
-    fn beginToken(self: *Self) {
-        self.c_token = Token {
+    fn beginToken(self: *Self) void {
+        self.c_token = Token.{
             .id = undefined,
-            .span = Span {
+            .span = Span.{
                 .start_byte = self.c_byte,
                 .end_byte = undefined,
                 .start_line = self.c_line,
@@ -374,7 +375,7 @@ pub const Tokenizer = struct {
     }
 
     /// Set the id of the current token.
-    fn setToken(self: *Self, id: TokenId) {
+    fn setToken(self: *Self, id: TokenId) void {
         self.c_token.?.*.id = id;
     }
 
@@ -396,11 +397,11 @@ pub const Tokenizer = struct {
             data.deinit();
             return entry.value;
         } else {
-            _ = return try self.intern_pool.put(data.toSliceConst(), data.toSliceConst());
-            data.toSliceConst()
+            _ = try self.intern_pool.put(data.toSliceConst(), data.toSliceConst());
+            data.toSliceConst();
         };
 
-        self.c_token.?.*.data = TokenData.InternPoolRef { ref };
+        self.c_token.?.*.data = TokenData.InternPoolRef.{ ref };
     }
 
     /// Mark the current position as the end of a token and set it to a new id.
@@ -424,7 +425,7 @@ pub const Tokenizer = struct {
     /// Advance the cursor location by n steps.
     ///
     /// Bumping past the end of the buffer has no effect.
-    fn bump(self: *Self, comptime i: usize) {
+    fn bump(self: *Self, comptime i: usize) void {
         var j: usize = 0;
         while (j < i) : (j += 1) {
             if (self.c_byte >= self.c_buf.len) {
@@ -444,7 +445,7 @@ pub const Tokenizer = struct {
     // Actual processing helper routines.
 
     /// Consume an entire integer of the specified radix.
-    fn consumeInteger(self: &Self, comptime radix: u8, init_value: u64) -> %u64 {
+    fn consumeInteger(self: &Self, comptime radix: u8, init_value: u64) !u64 {
         var number = init_value;
         var overflowed = false;
 
@@ -483,38 +484,38 @@ pub const Tokenizer = struct {
     /// Consumes a decimal exponent for a float.
     ///
     /// This includes an optional leading +, -.
-    fn consumeFloatExponent(self: &Self, exponent_sign: &bool) -> %u64 {
+    fn consumeFloatExponent(self: &Self, exponent_sign: &bool) !u64 {
         *exponent_sign = switch (self.peek(0)) {
             '-' => {
                 self.bump(1);
-                true
+                true;
             },
             '+' => {
                 self.bump(1);
-                false
+                false;
             },
             else => {
-                false
+                false;
             },
         };
 
-        self.consumeInteger(10, 0)
+        return self.consumeInteger(10, 0);
     }
 
     /// Process a float with the specified radix starting from the decimal part.
     ///
     /// The non-decimal portion should have been processed by `consumeNumber`.
-    fn consumeFloatFractional(self: &Self, comptime radix: u8, whole_part: u64) -> %f64 {
+    fn consumeFloatFractional(self: &Self, comptime radix: u8, whole_part: u64) !f64 {
         debug.assert(radix == 10 or radix == 16);
 
-        var number = %return self.consumeInteger(radix, 0);
+        var number = try self.consumeInteger(radix, 0);
 
         switch (self.peek(0)) {
             'e', 'E' => {
                 self.bump(1);
 
                 var is_neg_exp: bool = undefined;
-                var exp = %return self.consumeFloatExponent(&is_neg_exp);
+                var exp = try self.consumeFloatExponent(&is_neg_exp);
 
                 const whole = if (number != 0) {
                     const digit_count = usize(1 + std.math.log10(number));
@@ -525,15 +526,15 @@ pub const Tokenizer = struct {
                         frac_part /= 10;
                     }
 
-                    f64(whole_part) + frac_part
+                    f64(whole_part) + frac_part;
                 } else {
-                    f64(whole_part)
+                    f64(whole_part);
                 };
 
                 if (is_neg_exp) {
-                    whole / std.math.pow(f64, 10, f64(exp))
+                    return whole / std.math.pow(f64, 10, f64(exp));
                 } else {
-                    whole * std.math.pow(f64, 10, f64(exp))
+                    return whole * std.math.pow(f64, 10, f64(exp));
                 }
             },
 
@@ -541,7 +542,7 @@ pub const Tokenizer = struct {
                 self.bump(1);
 
                 var is_neg_exp: bool = undefined;
-                var exp = %return self.consumeFloatExponent(&is_neg_exp);
+                var exp = try self.consumeFloatExponent(&is_neg_exp);
 
                 const whole = if (number != 0) {
                     const digit_count = usize(1 + std.math.log(f64, 16, f64(number)));
@@ -552,21 +553,21 @@ pub const Tokenizer = struct {
                         frac_part /= 10;
                     }
 
-                    f64(whole_part) + frac_part
+                    f64(whole_part) + frac_part;
                 } else {
-                    f64(whole_part)
+                    f64(whole_part);
                 };
 
                 if (is_neg_exp) {
-                    whole / std.math.pow(f64, 2, f64(exp))
+                    return whole / std.math.pow(f64, 2, f64(exp));
                 } else {
-                    whole * std.math.pow(f64, 2, f64(exp))
+                    return whole * std.math.pow(f64, 2, f64(exp));
                 }
             },
 
             else => {
                 const frac_part = f64(number) / (std.math.pow(f64, f64(10), f64(1 + std.math.log10(number))));
-                f64(whole_part) + frac_part
+                return f64(whole_part) + frac_part;
             },
         }
     }
@@ -578,14 +579,14 @@ pub const Tokenizer = struct {
     /// This will only modify the current stream position.
     //
     // TODO: Use big integer generally improve here.
-    fn consumeNumber(self: &Self, comptime radix: u8, init_value: ?u8) -> %IntOrFloat {
+    fn consumeNumber(self: &Self, comptime radix: u8, init_value: ?u8) !IntOrFloat {
         var init_number: u64 = if (init_value) |v| {
-            %return getDigitValueForRadix(radix, v)
+            try getDigitValueForRadix(radix, v);
         } else {
-            0
+            0;
         };
 
-        const number = %return self.consumeInteger(radix, init_number);
+        const number = try self.consumeInteger(radix, init_number);
 
         // TODO: Need to be separated by a non-symbol token.
         // Raise an error if we find a non-alpha-numeric that doesn't fit. Do at caller?
@@ -593,9 +594,9 @@ pub const Tokenizer = struct {
         // i.e. 1230174ADAKHJ is invalid.
         if (self.peek(0) == '.') {
             self.bump(1);
-            IntOrFloat.Float { %return self.consumeFloatFractional(radix, number) }
+            return IntOrFloat.Float.{ try self.consumeFloatFractional(radix, number) };
         } else {
-            IntOrFloat.Int { number }
+            return IntOrFloat.Int.{ number };
         }
     }
 
@@ -605,42 +606,42 @@ pub const Tokenizer = struct {
     ///
     /// This will only modify the current stream position.
     fn consumeCharCode(self: &Self,
-        comptime radix: u8, comptime count: u8, comptime is_unicode: bool) -> %ArrayList(u8)
+        comptime radix: u8, comptime count: u8, comptime is_unicode: bool) !ArrayList(u8)
     {
         var utf8_code = ArrayList(u8).init(self.allocator);
-        %defer utf8_code.deinit();
+        errdefer utf8_code.deinit();
 
         var char_code: u32 = 0;
         comptime var i: usize = 0;
         inline while (i < count) : (i += 1) {
             char_code *= radix;
-            char_code += %return getDigitValueForRadix(radix, self.peek(0));
+            char_code += try getDigitValueForRadix(radix, self.peek(0));
             self.bump(1);
         }
 
         if (is_unicode) {
             if (char_code <= 0x7f) {
-                %return utf8_code.append(u8(char_code));
+                try utf8_code.append(u8(char_code));
             } else if (char_code <= 0x7ff) {
-                %return utf8_code.append(0xc0 | u8(char_code >> 6));
-                %return utf8_code.append(0x80 | u8(char_code & 0x3f));
+                try utf8_code.append(0xc0 | u8(char_code >> 6));
+                try utf8_code.append(0x80 | u8(char_code & 0x3f));
             } else if (char_code <= 0xffff) {
-                %return utf8_code.append(0xe0 | u8(char_code >> 12));
-                %return utf8_code.append(0x80 | u8((char_code >> 6) & 0x3f));
-                %return utf8_code.append(0x80 | u8(char_code & 0x3f));
+                try utf8_code.append(0xe0 | u8(char_code >> 12));
+                try utf8_code.append(0x80 | u8((char_code >> 6) & 0x3f));
+                try utf8_code.append(0x80 | u8(char_code & 0x3f));
             } else if (char_code <= 0x10ffff) {
-                %return utf8_code.append(0xf0 | u8(char_code >> 18));
-                %return utf8_code.append(0x80 | u8((char_code >> 12) & 0x3f));
-                %return utf8_code.append(0x80 | u8((char_code >> 6) & 0x3f));
-                %return utf8_code.append(0x80 | u8(char_code & 0x3f));
+                try utf8_code.append(0xf0 | u8(char_code >> 18));
+                try utf8_code.append(0x80 | u8((char_code >> 12) & 0x3f));
+                try utf8_code.append(0x80 | u8((char_code >> 6) & 0x3f));
+                try utf8_code.append(0x80 | u8(char_code & 0x3f));
             } else {
                 return error.UnicodeCharCodeOutOfRange;
             }
         } else {
-            %return utf8_code.append(u8(char_code));
+            try utf8_code.append(u8(char_code));
         }
 
-        utf8_code
+        return utf8_code;
     }
 
     /// Process an escape code.
@@ -648,75 +649,75 @@ pub const Tokenizer = struct {
     /// Expects the '/' has already been handled by the caller.
     ///
     /// Returns the utf8 encoded value of the codepoint.
-    fn consumeStringEscape(self: &Self) -> %ArrayList(u8) {
-        switch (self.peek(0)) {
+    fn consumeStringEscape(self: &Self) !ArrayList(u8) {
+        return switch (self.peek(0)) {
             'x' => {
                 self.bump(1);
-                self.consumeCharCode(16, 2, false)
+                self.consumeCharCode(16, 2, false);
             },
 
             'u' => {
                 self.bump(1);
-                self.consumeCharCode(16, 4, true)
+                self.consumeCharCode(16, 4, true);
             },
 
             'U' => {
                 self.bump(1);
-                self.consumeCharCode(16, 6, true)
+                self.consumeCharCode(16, 6, true);
             },
 
             'n'  => {
                 self.bump(1);
                 var l = ArrayList(u8).init(self.allocator);
-                %return l.append('\n');
-                l
+                try l.append('\n');
+                l;
             },
 
             'r'  => {
                 self.bump(1);
                 var l = ArrayList(u8).init(self.allocator);
-                %return l.append('\r');
-                l
+                try l.append('\r');
+                l;
             },
 
             '\\' => {
                 self.bump(1);
                 var l = ArrayList(u8).init(self.allocator);
-                %return l.append('\\');
-                l
+                try l.append('\\');
+                l;
             },
 
             't'  => {
                 self.bump(1);
                 var l = ArrayList(u8).init(self.allocator);
-                %return l.append('\t');
-                l
+                try l.append('\t');
+                l;
             },
 
             '\'' => {
                 self.bump(1);
                 var l = ArrayList(u8).init(self.allocator);
-                %return l.append('\'');
-                l
+                try l.append('\'');
+                l;
             },
 
             '"'  => {
                 self.bump(1);
                 var l = ArrayList(u8).init(self.allocator);
-                %return l.append('\"');
-                l
+                try l.append('\"');
+                l;
             },
 
             else => {
                 @panic("unexpected character");
             }
-        }
+        };
     }
 
     /// Process a string, returning the encountered characters.
-    fn consumeString(self: &Self) -> %ArrayList(u8) {
+    fn consumeString(self: &Self) !ArrayList(u8) {
         var literal = ArrayList(u8).init(self.allocator);
-        %defer literal.deinit();
+        errdefer literal.deinit();
 
         while (true) {
             switch (self.peek(0)) {
@@ -731,8 +732,8 @@ pub const Tokenizer = struct {
 
                 '\\' => {
                     self.bump(1);
-                    var value = %return self.consumeStringEscape();
-                    %return literal.appendSlice(value.toSliceConst());
+                    var value = try self.consumeStringEscape();
+                    try literal.appendSlice(value.toSliceConst());
                     value.deinit();
                 },
 
@@ -742,20 +743,20 @@ pub const Tokenizer = struct {
 
                 else => |c| {
                     self.bump(1);
-                    %return literal.append(c);
+                    try literal.append(c);
                 },
             }
         }
 
-        literal
+        return literal;
     }
 
     /// Process a line comment, returning the encountered characters
     // NOTE: We do not want to strip whitespace from comments since things like diagrams may require
     // it to be formatted correctly. We could do trailing but don't bother right now.
-    fn consumeUntilNewline(self: &Self) -> %ArrayList(u8) {
+    fn consumeUntilNewline(self: &Self) !ArrayList(u8) {
         var comment = ArrayList(u8).init(self.allocator);
-        %defer comment.deinit();
+        errdefer comment.deinit();
 
         while (self.nextByte()) |c| {
             switch (c) {
@@ -764,16 +765,16 @@ pub const Tokenizer = struct {
                 },
 
                 else => {
-                    %return comment.append(c);
+                    try comment.append(c);
                 }
             }
         }
 
-        comment
+        return comment;
     }
 
     /// Return the next token from the buffer.
-    pub fn next(t: &Self) -> %?&const Token {
+    pub fn next(t: &Self) !?*const Token {
         if (t.consumed) {
             return null;
         }
@@ -783,27 +784,27 @@ pub const Tokenizer = struct {
             switch (ch) {
                 ' ', '\r', '\n', '\t' => {},
 
-                '(' => %return t.setEndToken(TokenId.LParen),
-                ')' => %return t.setEndToken(TokenId.RParen),
-                ',' => %return t.setEndToken(TokenId.Comma),
-                '{' => %return t.setEndToken(TokenId.LBrace),
-                '}' => %return t.setEndToken(TokenId.RBrace),
-                '[' => %return t.setEndToken(TokenId.LBracket),
-                ']' => %return t.setEndToken(TokenId.RBracket),
-                ';' => %return t.setEndToken(TokenId.Semicolon),
-                ':' => %return t.setEndToken(TokenId.Colon),
-                '#' => %return t.setEndToken(TokenId.NumberSign),
-                '~' => %return t.setEndToken(TokenId.Tilde),
+                '(' => try t.setEndToken(TokenId.LParen),
+                ')' => try t.setEndToken(TokenId.RParen),
+                ',' => try t.setEndToken(TokenId.Comma),
+                '{' => try t.setEndToken(TokenId.LBrace),
+                '}' => try t.setEndToken(TokenId.RBrace),
+                '[' => try t.setEndToken(TokenId.LBracket),
+                ']' => try t.setEndToken(TokenId.RBracket),
+                ';' => try t.setEndToken(TokenId.Semicolon),
+                ':' => try t.setEndToken(TokenId.Colon),
+                '#' => try t.setEndToken(TokenId.NumberSign),
+                '~' => try t.setEndToken(TokenId.Tilde),
 
                 '_', 'a' ... 'z', 'A' ... 'Z' => {
                     var symbol = ArrayList(u8).init(t.allocator);
-                    %return symbol.append(ch);
+                    try symbol.append(ch);
 
                     while (true) {
                         switch (t.peek(0)) {
                             '_', 'a' ... 'z', 'A' ... 'Z', '0' ... '9' => |c| {
                                 t.bump(1);
-                                %return symbol.append(c);
+                                try symbol.append(c);
                             },
 
                             else => {
@@ -814,10 +815,10 @@ pub const Tokenizer = struct {
 
                     if (getKeywordId(symbol.toSliceConst())) |id| {
                         symbol.deinit();
-                        %return t.setEndToken(id);
+                        try t.setEndToken(id);
                     } else {
-                        %return t.setInternToken(&symbol);
-                        %return t.setEndToken(TokenId.Symbol);
+                        try t.setInternToken(&symbol);
+                        try t.setEndToken(TokenId.Symbol);
                     }
                 },
 
@@ -825,85 +826,85 @@ pub const Tokenizer = struct {
                     const value = switch (t.peek(0)) {
                         'b' => {
                             t.bump(1);
-                            %return t.consumeNumber(2, null)
+                            try t.consumeNumber(2, null);
                         },
 
                         'o' => {
                             t.bump(1);
-                            %return t.consumeNumber(8, null)
+                            try t.consumeNumber(8, null);
                         },
 
                         'x' => {
                             t.bump(1);
-                            %return t.consumeNumber(16, null)
+                            try t.consumeNumber(16, null);
                         },
 
                         else => {
                             // TODO: disallow anything after a 0 except a dot.
-                            %return t.consumeNumber(10, null)
+                            try t.consumeNumber(10, null);
                         },
                     };
 
                     switch (value) {
                         IntOrFloat.Int => |i| {
-                            (??t.c_token).data = TokenData.Integer { i };
-                            %return t.setEndToken(TokenId.IntLiteral);
+                            (t.c_token).data.?.* = TokenData.Integer.{ i };
+                            try t.setEndToken(TokenId.IntLiteral);
                         },
                         IntOrFloat.Float => |f| {
-                            (??t.c_token).data = TokenData.Float { f };
-                            %return t.setEndToken(TokenId.FloatLiteral);
+                            (t.c_token).data.?.* = TokenData.Float.{ f };
+                            try t.setEndToken(TokenId.FloatLiteral);
                         },
                     }
                 },
 
                 '1' ... '9' => {
-                    const value = %return t.consumeNumber(10, ch);
+                    const value = try t.consumeNumber(10, ch);
                     switch (value) {
                         IntOrFloat.Int => |i| {
-                            (??t.c_token).data = TokenData.Integer { i };
-                            %return t.setEndToken(TokenId.IntLiteral);
+                            (t.c_token).data.?.* = TokenData.Integer.{ i };
+                            try t.setEndToken(TokenId.IntLiteral);
                         },
                         IntOrFloat.Float => |f| {
-                            (??t.c_token).data = TokenData.Float { f };
-                            %return t.setEndToken(TokenId.FloatLiteral);
+                            (t.c_token).data.?.* = TokenData.Float.{ f };
+                            try t.setEndToken(TokenId.FloatLiteral);
                         },
                     }
                 },
 
                 '"' => {
-                    var literal = %return t.consumeString();
-                    %return t.setInternToken(&literal);
-                    %return t.setEndToken(TokenId.StringLiteral);
+                    var literal = try t.consumeString();
+                    try t.setInternToken(&literal);
+                    try t.setEndToken(TokenId.StringLiteral);
                 },
 
                 '-' => {
                     switch (t.peek(0)) {
                         '>' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.Arrow);
+                            try t.setEndToken(TokenId.Arrow);
                         },
 
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.MinusEq);
+                            try t.setEndToken(TokenId.MinusEq);
                         },
 
-                        '%' => {
+                        '!' => {
                             t.bump(1);
                             switch (t.peek(0)) {
                                 '=' => {
                                     t.bump(1);
-                                    %return t.setEndToken(TokenId.MinusPercentEq);
+                                    try t.setEndToken(TokenId.MinusPercentEq);
                                 },
 
                                 else => {
-                                    %return t.setEndToken(TokenId.MinusPercent);
+                                    try t.setEndToken(TokenId.MinusPercent);
                                 },
                             }
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Dash);
+                            try t.setEndToken(TokenId.Dash);
                         }
                     }
                 },
@@ -912,30 +913,30 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.PlusEq);
+                            try t.setEndToken(TokenId.PlusEq);
                         },
 
                         '+' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.PlusPlus);
+                            try t.setEndToken(TokenId.PlusPlus);
                         },
 
-                        '%' => {
+                        '!' => {
                             t.bump(1);
                             switch (t.peek(0)) {
                                 '=' => {
                                     t.bump(1);
-                                    %return t.setEndToken(TokenId.PlusPercentEq);
+                                    try t.setEndToken(TokenId.PlusPercentEq);
                                 },
 
                                 else => {
-                                    %return t.setEndToken(TokenId.PlusPercent);
+                                    try t.setEndToken(TokenId.PlusPercent);
                                 },
                             }
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Plus);
+                            try t.setEndToken(TokenId.Plus);
                         }
                     }
                 },
@@ -944,30 +945,30 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.TimesEq);
+                            try t.setEndToken(TokenId.TimesEq);
                         },
 
                         '*' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.StarStar);
+                            try t.setEndToken(TokenId.StarStar);
                         },
 
-                        '%' => {
+                        '!' => {
                             t.bump(1);
                             switch (t.peek(0)) {
                                 '=' => {
                                     t.bump(1);
-                                    %return t.setEndToken(TokenId.TimesPercentEq);
+                                    try t.setEndToken(TokenId.TimesPercentEq);
                                 },
 
                                 else => {
-                                    %return t.setEndToken(TokenId.TimesPercent);
+                                    try t.setEndToken(TokenId.TimesPercent);
                                 }
                             }
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Star);
+                            try t.setEndToken(TokenId.Star);
                         },
                     }
                 },
@@ -992,113 +993,18 @@ pub const Tokenizer = struct {
                                 },
                             }
 
-                            var comment_inner = %return t.consumeUntilNewline();
-                            %return t.setInternToken(&comment_inner);
-                            %return t.endToken();
+                            var comment_inner = try t.consumeUntilNewline();
+                            try t.setInternToken(&comment_inner);
+                            try t.endToken();
                         },
 
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.DivEq);
+                            try t.setEndToken(TokenId.DivEq);
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Slash);
-                        },
-                    }
-                },
-
-                '%' => {
-                    switch (t.peek(0)) {
-                        '=' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.ModEq);
-                        },
-
-                        '.' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.PercentDot);
-                        },
-
-                        '%' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.PercentPercent);
-                        },
-
-                        else => {
-                            %return t.setEndToken(TokenId.Percent);
-                        },
-                    }
-                },
-
-                '@' => {
-                    switch (t.peek(0)) {
-                        '"' => {
-                            t.bump(1);
-                            var literal = %return t.consumeString();
-                            %return t.setInternToken(&literal);
-                            %return t.setEndToken(TokenId.Symbol);
-                        },
-
-                        else => {
-                            %return t.setEndToken(TokenId.AtSign);
-                        },
-                    }
-                },
-
-                '&' => {
-                    switch (t.peek(0)) {
-                        '=' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.BitAndEq);
-                        },
-
-                        else => {
-                            %return t.setEndToken(TokenId.Ampersand);
-                        }
-                    }
-                },
-
-                '^' => {
-                    switch (t.peek(0)) {
-                        '=' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.BitXorEq);
-                        },
-
-                        else => {
-                            %return t.setEndToken(TokenId.BinXor);
-                        }
-                    }
-                },
-
-                '|' => {
-                    switch (t.peek(0)) {
-                        '=' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.BitOrEq);
-                        },
-
-                        else => {
-                            %return t.setEndToken(TokenId.BinOr);
-                        }
-                    }
-                },
-
-                '=' => {
-                    switch (t.peek(0)) {
-                        '=' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.CmpEq);
-                        },
-
-                        '>' => {
-                            t.bump(1);
-                            %return t.setEndToken(TokenId.FatArrow);
-                        },
-
-                        else => {
-                            %return t.setEndToken(TokenId.Eq);
+                            try t.setEndToken(TokenId.Slash);
                         },
                     }
                 },
@@ -1107,11 +1013,106 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.CmpNotEq);
+                            try t.setEndToken(TokenId.ModEq);
+                        },
+
+                        '.' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.PercentDot);
+                        },
+
+                        '!' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.PercentPercent);
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Bang);
+                            try t.setEndToken(TokenId.Percent);
+                        },
+                    }
+                },
+
+                '@' => {
+                    switch (t.peek(0)) {
+                        '"' => {
+                            t.bump(1);
+                            var literal = try t.consumeString();
+                            try t.setInternToken(&literal);
+                            try t.setEndToken(TokenId.Symbol);
+                        },
+
+                        else => {
+                            try t.setEndToken(TokenId.AtSign);
+                        },
+                    }
+                },
+
+                '&' => {
+                    switch (t.peek(0)) {
+                        '=' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.BitAndEq);
+                        },
+
+                        else => {
+                            try t.setEndToken(TokenId.Ampersand);
+                        }
+                    }
+                },
+
+                '^' => {
+                    switch (t.peek(0)) {
+                        '=' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.BitXorEq);
+                        },
+
+                        else => {
+                            try t.setEndToken(TokenId.BinXor);
+                        }
+                    }
+                },
+
+                '|' => {
+                    switch (t.peek(0)) {
+                        '=' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.BitOrEq);
+                        },
+
+                        else => {
+                            try t.setEndToken(TokenId.BinOr);
+                        }
+                    }
+                },
+
+                '=' => {
+                    switch (t.peek(0)) {
+                        '=' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.CmpEq);
+                        },
+
+                        '>' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.FatArrow);
+                        },
+
+                        else => {
+                            try t.setEndToken(TokenId.Eq);
+                        },
+                    }
+                },
+
+                '!' => {
+                    switch (t.peek(0)) {
+                        '=' => {
+                            t.bump(1);
+                            try t.setEndToken(TokenId.CmpNotEq);
+                        },
+
+                        else => {
+                            try t.setEndToken(TokenId.Bang);
                         },
                     }
                 },
@@ -1120,7 +1121,7 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.CmpLessOrEq);
+                            try t.setEndToken(TokenId.CmpLessOrEq);
                         },
 
                         '<' => {
@@ -1128,17 +1129,17 @@ pub const Tokenizer = struct {
                             switch (t.peek(0)) {
                                 '=' => {
                                     t.bump(1);
-                                    %return t.setEndToken(TokenId.BitShiftLeftEq);
+                                    try t.setEndToken(TokenId.BitShiftLeftEq);
                                 },
 
                                 else => {
-                                    %return t.setEndToken(TokenId.BitShiftLeft);
+                                    try t.setEndToken(TokenId.BitShiftLeft);
                                 },
                             }
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.CmpLessThan);
+                            try t.setEndToken(TokenId.CmpLessThan);
                         },
                     }
                 },
@@ -1147,7 +1148,7 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.CmpGreaterOrEq);
+                            try t.setEndToken(TokenId.CmpGreaterOrEq);
                         },
 
                         '>' => {
@@ -1155,17 +1156,17 @@ pub const Tokenizer = struct {
                             switch (t.peek(0)) {
                                 '=' => {
                                     t.bump(1);
-                                    %return t.setEndToken(TokenId.BitShiftRightEq);
+                                    try t.setEndToken(TokenId.BitShiftRightEq);
                                 },
 
                                 else => {
-                                    %return t.setEndToken(TokenId.BitShiftRight);
+                                    try t.setEndToken(TokenId.BitShiftRight);
                                 },
                             }
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.CmpGreaterThan);
+                            try t.setEndToken(TokenId.CmpGreaterThan);
                         },
                     }
                 },
@@ -1177,17 +1178,17 @@ pub const Tokenizer = struct {
                             switch (t.peek(0)) {
                                 '.' => {
                                     t.bump(1);
-                                    %return t.setEndToken(TokenId.Ellipsis3)
+                                    return try t.setEndToken(TokenId.Ellipsis3);
                                 },
 
                                 else => {
-                                    %return t.setEndToken(TokenId.Ellipsis2);
+                                    try t.setEndToken(TokenId.Ellipsis2);
                                 },
                             }
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Dot);
+                            try t.setEndToken(TokenId.Dot);
                         },
                     }
                 },
@@ -1196,16 +1197,16 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '?' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.DoubleQuestion);
+                            try t.setEndToken(TokenId.DoubleQuestion);
                         },
 
                         '=' => {
                             t.bump(1);
-                            %return t.setEndToken(TokenId.MaybeAssign);
+                            try t.setEndToken(TokenId.MaybeAssign);
                         },
 
                         else => {
-                            %return t.setEndToken(TokenId.Maybe);
+                            try t.setEndToken(TokenId.Maybe);
                         }
                     }
                 },
@@ -1218,7 +1219,7 @@ pub const Tokenizer = struct {
 
                         '\\' => {
                             t.bump(1);
-                            var value = %return t.consumeStringEscape();
+                            var value = try t.consumeStringEscape();
 
                             if (t.peek(0) != '\'') {
                                 return error.ExtraCharLiteralData;
@@ -1227,7 +1228,7 @@ pub const Tokenizer = struct {
                                 std.debug.assert(value.len == 1);
                                 (??t.c_token).data = TokenData.Char { value.toSliceConst()[0] };
                                 value.deinit();
-                                %return t.setEndToken(TokenId.CharLiteral);
+                                try t.setEndToken(TokenId.CharLiteral);
                             }
                         },
 
@@ -1241,7 +1242,7 @@ pub const Tokenizer = struct {
                             } else {
                                 (??t.c_token).data = TokenData.Char { t.peek(0) };
                                 t.bump(2);
-                                %return t.setEndToken(TokenId.CharLiteral);
+                                try t.setEndToken(TokenId.CharLiteral);
                             }
                         },
                     }
@@ -1251,9 +1252,9 @@ pub const Tokenizer = struct {
                     switch (t.peek(0)) {
                         '\\' => {
                             t.bump(1);
-                            var literal = %return t.consumeUntilNewline();
-                            %return t.setInternToken(&literal);
-                            %return t.setEndToken(TokenId.MultiLineStringLiteral);
+                            var literal = try t.consumeUntilNewline();
+                            try t.setInternToken(&literal);
+                            try t.setEndToken(TokenId.MultiLineStringLiteral);
                         },
 
                         else => {
@@ -1268,7 +1269,7 @@ pub const Tokenizer = struct {
             }
         } else {
             t.consumed = true;
-            %return t.setEndToken(TokenId.Eof);
+            try t.setEndToken(TokenId.Eof);
         }
 
         &t.tokens.toSliceConst()[t.tokens.len - 1]
@@ -1281,7 +1282,7 @@ pub const Tokenizer = struct {
     //
     // NOTE: The tokenizer will continue through errors until the complete buffer has been processed.
     // The list of errors encountered will be stored in the `errors` field.
-    pub fn process(self: &Self, buf: []const u8) -> %void {
+    pub fn process(self: &Self, buf: []const u8) !void {
         self.c_buf = buf;
 
         // This iterates over the entire buffer. Tokens are returned as references but are still
